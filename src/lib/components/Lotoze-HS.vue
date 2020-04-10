@@ -97,8 +97,8 @@
 
 <script>
   import $ from "zepto";
-  import html2canvas from "html2canvas";
   import "zepto/src/touch";
+  import html2canvas from "html2canvas";
   import * as BTNEV from "../assets/js/btnEventCallBack.js";
 
   import AlertLoading from './AlertLoading'
@@ -108,8 +108,8 @@
   import {submitHE} from "../api/axios.js";
   import * as TimeUtil from "../utils/TimeUtil.js";
   export default {
-    name: 'HS',
-    props: ["server", "options"],
+    name: 'LotozeHS',
+    props: ["options"],
     components: {
       "AlertLoading": AlertLoading,
       "AlertHtml": AlertHtml,
@@ -148,12 +148,14 @@
         bool: false
       }
     },
+
     computed: {
       isShow() {
         return this.brushSizeIsShow !== true ? false : true;
       }
     },
     created(){
+      console.log(this.options)
       this.simpleFontOption = Object.assign({}, this.simpleFontOption, this.options);
     },
     mounted: function () {
@@ -316,6 +318,7 @@
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+  @import "../assets/style/public.css";
   .lotoze-HS{
     width: 100%;
     height: 100%;
