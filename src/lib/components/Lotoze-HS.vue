@@ -111,7 +111,7 @@
 
 
   export default {
-    name: 'HS',
+    name: 'LotozeHS',
     props: ["options"],
     components: {
       "AlertLoading": AlertLoading,
