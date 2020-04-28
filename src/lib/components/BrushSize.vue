@@ -59,7 +59,7 @@
 <style scoped>
   .brush-size{
     position: absolute;
-    z-index: 999;
+    /*z-index: 999;*/
     left: 50%;
     top: calc(100% + 3px);
     background-color: #fff;

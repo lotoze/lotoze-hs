@@ -4,8 +4,8 @@
       <span @click="clearFontView">清除</span>
       <span @click="preview">保存</span>
     </div>
-    <div class="lotoze-view scroll-box">
-      <div id="fontView" ref="fontView">
+    <div class="lotoze-view scroll-box" :style="{top: topBtnHeight+ 'px'}">
+      <div id="fontView" ref="fontView" :style="[{width: !isWrap ? simpleFontOption.pcStipulateWidth + 'px' : 'auto'}, {whiteSpace: isWrap ? 'nowrap' : 'normal'}]">
         <span id="initCursorPoint" v-if="fontArr.length == 0"
               :style="{
                     display: 'inline-block',
@@ -27,13 +27,11 @@
         </template>
       </div>
     </div>
-
-
-    <div class="lotoze-hand">
+    <div class="lotoze-hand" :style="{height: lotozeHandHeight + 'px !important;'}">
       <div class="btns">
         <ul>
           <li>
-            <p><colorPicker v-model="simpleFontOption.color" v-on:change="handleChangeColor"/></p>
+            <p><colorPicker :popper-class="['color-packer']" v-model="simpleFontOption.color" v-on:change="handleChangeColor"/></p>
             <p>颜色</p>
           </li>
           <li @click="changeProp(2, 'LINE_FEED')">
@@ -58,7 +56,7 @@
       </div>
       &#10;&#13;
 
-      <canvas id="hand" width="290" height="290">
+      <canvas id="hand" :width="initWidth" :height="initHeight">
 
       </canvas>
 
@@ -78,9 +76,9 @@
         </div>
         <div class="preview-box">
           <div class="lotoze-view">
-            <div id="finalView" ref="finalView">
+            <div id="finalView" ref="finalView" :style="[{width: !isWrap ? (simpleFontOption.zoom || simpleFontOption.viewWidth/simpleFontOption.width) * simpleFontOption.pcStipulateWidth + 'px' : 'auto'}, {whiteSpace: isWrap ? 'nowrap' : 'normal'}]">
               <template v-for="(item, index) in fontArr">
-                <img v-if="(item !== '<br/>') && (item !== 'space')" :src="item" alt="" :width="simpleFontOption.viewWidth" :height="simpleFontOption.viewHeight">
+                <img v-if="(item !== '<br/>') && (item !== 'space')" :src="item" alt="" :width="simpleFontOption.viewWidth || (this.simpleFontOption.width * this.simpleFontOption.zoom)" :height="simpleFontOption.viewHeight || (this.simpleFontOption.viewHeight * this.simpleFontOption.zoom)">
                 <br v-else-if="item === '<br/>'"/>
                 <span v-else-if="item === 'space'" class="space" :style="{width: simpleFontOption.spaceWidth + 'px', height: simpleFontOption.height + 'px'}"></span>
               </template>
@@ -92,35 +90,43 @@
         </div>
       </template>
     </AlertHtml>
+    <AlertMessage ref="alertMessage"></AlertMessage>
   </div>
 </template>
 
 <script>
   import $ from "zepto";
-  import "zepto/src/touch";
   import html2canvas from "html2canvas";
+  import "zepto/src/touch";
   import * as BTNEV from "../assets/js/btnEventCallBack.js";
 
   import AlertLoading from './AlertLoading'
   import AlertHtml from './AlertHtml'
+  import AlertMessage from './AlertMessage'
   import BrushSize from './BrushSize'
 
   import {submitHE} from "../api/axios.js";
   import * as TimeUtil from "../utils/TimeUtil.js";
+  import * as UrlUtil from "../utils/UrlUtil.js";
+
+
   export default {
-    name: 'LotozeHS',
+    name: 'HS',
     props: ["options"],
     components: {
       "AlertLoading": AlertLoading,
       "AlertHtml": AlertHtml,
+      "AlertMessage": AlertMessage,
       "BrushSize": BrushSize
     },
+
     data () {
       return {
         simpleFontOption: {
-          server: "",
-          viewWidth: 100,
-          viewHeight: 100,
+          server: "/form/html/Signature",
+          zoom: 2,
+          viewWidth: 80,
+          viewHeight: 80,
           width: 40,
           height: 40,
           color: "#000000",
@@ -129,8 +135,19 @@
           cursorPointWidth: 2,
           cursorPointHeight: 40,
           cursorPointColor: "#ff4400",
-          spaceWidth: 10
+          spaceWidth: 10,
+          pcStipulateWidth: 300, //PC规定宽度，
         },
+        isWrap: false,
+        color: "#000000",
+        params: {},
+        initWidth: 0,
+        initHeight: 0,
+        topBtnHeight: 0,
+        lotozeViewHeight: 0,
+        lotozeHandHeight: 0,
+        formData: null,
+        serverData: {},
         isAlertHtml: false,
         isAlertLoading: false,
         timer: null,
@@ -145,24 +162,35 @@
         handCanvas: null,
         handContext: null,
         fontArr: [],
-        bool: false
+        bool: false,
+        scrollBox: null
       }
     },
 
     computed: {
       isShow() {
         return this.brushSizeIsShow !== true ? false : true;
-      }
+      },
     },
     created(){
-      console.log(this.options)
-      this.simpleFontOption = Object.assign({}, this.simpleFontOption, this.options);
+      // alert(window.devicePixelRatio +"---"+ window.screen.width + "----" + window.screen.availHeight + "");
+      if(this.options) this.simpleFontOption = Object.assign({}, this.simpleFontOption, this.options);
+      this.formData = new FormData();
+      var locationHref = window.location.href;
+      if(locationHref.indexOf("?") !== -1) {
+        var locationSearch = window.location.search;
+        var params = UrlUtil.getLocationSearchParameters(locationSearch);
+        this.params = params;
+        // if(this.params.SAVE_URL && this.params.SAVE_URL == "countersignSignature") {
+        //   this.simpleFontOption.server = "/form/html/countersignSignature";
+        // }
+        for(var param in params) {
+          this.formData.append(param, params[param]);
+        }
+      }
     },
     mounted: function () {
       this.init();
-      // this.handCanvas.on("touchend",  (e) => {
-      //   console.log(e);
-      // })
       this.draw();
     },
     methods: {
@@ -173,6 +201,35 @@
         this.handContext.lineCap = "round";
         this.handContext.lineJoin = "round";
         this.handContext.lineWidth = this.simpleFontOption.lineWidth;
+        this.initWidth = this.handCanvas.width();
+        this.initHeight = this.handCanvas.height();
+        this.topBtnHeight = $(".lotoze-HS .top-btn").height();
+        this.lotozeViewHeight = $(".lotoze-HS > .lotoze-view").height();
+        // alert(window.devicePixelRatio)
+        // alert(window.screen.width)
+        // alert(window.screen.height)
+        let clientHeight = document.body.clientHeight;
+        this.lotozeHandHeight = clientHeight - (this.topBtnHeight + this.lotozeViewHeight) - 5;
+        // this.lotozeHandHeight = $(".lotoze-HS .lotoze-hand").height();
+        // alert(this.lotozeHandHeight)
+        this.scrollBox = document.getElementsByClassName("scroll-box")[0];
+
+        //必须传值必须大于当前屏幕宽度，否则就按屏幕宽度来
+        // if(this.params.handwriteWidth && this.params.handwriteWidth > this.scrollBox.clientWidth) {
+        //   console.log(666666666666)
+        //   this.simpleFontOption.pcStipulateWidth = this.params.handwriteWidth;
+        // } else {
+        //   console.log(7777777777)
+        //   this.simpleFontOption.pcStipulateWidth = this.scrollBox.clientWidth;
+        // }
+        //无论是什么都可以。有个最小值3倍的初始化宽度
+        if(this.params.handwriteWidth > this.simpleFontOption.width*3){
+          this.simpleFontOption.pcStipulateWidth = this.params.handwriteWidth;
+        } else {
+          this.simpleFontOption.pcStipulateWidth = this.scrollBox.clientWidth;
+        }
+
+        this.checkIsWrap();
       },
       draw: function() {
         this.handCanvas.on("touchstart", (e) => {
@@ -194,7 +251,7 @@
             e.stopPropagation();
             this.handContext.closePath();
             this.bool = false;
-            // this.isCreate = true;
+            this.isCreate = true;
             // this.timer = setTimeout(() => {
             //   this.createSimpleFontImage();
             // }, 3000)
@@ -203,7 +260,7 @@
             e.stopPropagation();
             this.handContext.closePath();
             this.bool = false;
-            // this.isCreate = true;
+            this.isCreate = true;
             // this.timer = setTimeout(() => {
             //   this.createSimpleFontImage();
             // }, 3000)
@@ -213,6 +270,7 @@
       createSimpleFontImage: function () {
         if(this.isCreate) {
           console.log("create");
+          this.checkIsBr(); //判断是否已达到规定宽度，如果达到换行
           var image = this.handCanvas[0].toDataURL("image/png");
           this.fontArr.push(image);
           this.lastIndex = this.fontArr.length;
@@ -224,41 +282,65 @@
         this.isAlertHtml = true;
       },
       save: function() {
-        this.isCursorPointShow = false;
-        this.isAlertLoading = true;
-        var finalView = document.getElementById("finalView")
-        var imgs = finalView.getElementsByTagName("img");
-        this.$nextTick(() => {
-          if(!this.isCursorPointShow) {
-            html2canvas(this.$refs.finalView, {
-              width: imgs.length < 3 ? imgs.length * this.simpleFontOption.viewWidth : finalView.scrollWidth,
-              height: finalView.scrollHeight
-            }).then(canvas => {
-              let dataURL = canvas.toDataURL("image/png");
-              this.saveImgUrl = dataURL;
-              // var reader = new FileReader();
-              // reader.onload = (e) => {
-              //   console.log(reader.readAsDataURL(dataURL));
-              // }
-              var file = this.dataURLtoFile(dataURL, Math.floor(Math.random() * 100000) + TimeUtil.format(new Date(), "yyyy-MM-dd"));
-              console.log(file);
-              var formData = new FormData();
-              formData.append("DATA_ID", 1);
-              formData.append("FORM_ID", "64d8f230-81a8-6a5c-1751-a401ddc1e9f6");
-              formData.append("ITEM_ID", "data_5e8bf12ff2e3b");
-              formData.append("BIND_DATA", "");
-              formData.append("P", "e55i0u2u145vsdad9h4oi7jglf");
-              formData.append("SIGNATURE", file);
-              submitHE(this.simpleFontOption.server, formData).then((res) => {
-              },(err) => {
-                throw new Error(err);
+        if(this.fontArr.length > 0) {
+          this.isCursorPointShow = false;
+          this.isAlertLoading = true;
+          var finalView = document.getElementById("finalView")
+          var imgs = finalView.getElementsByTagName("img");
+          this.$nextTick(() => {
+            if(!this.isCursorPointShow) {
+              html2canvas(this.$refs.finalView, {
+                width: imgs.length < 3 ? imgs.length * (this.simpleFontOption.viewWidth || this.simpleFontOption.width * this.simpleFontOption.zoom) : finalView.scrollWidth,
+                height: finalView.scrollHeight
+              }).then(canvas => {
+                let dataURL = canvas.toDataURL("image/png");
+                this.saveImgUrl = dataURL;
+                // var reader = new FileReader();
+                // reader.onload = (e) => {
+                //   console.log(reader.readAsDataURL(dataURL));
+                // }
+                var file = this.dataURLtoFile(dataURL, Math.floor(Math.random() * 100000) + TimeUtil.format(new Date(), "yyyy-MM-dd"));
+                if(this.params.auto && this.params.auto == 1){
+                  var u = navigator.userAgent, app = navigator.appVersion;
+                  var isAndroid = u.indexOf('Android') > -1 || u.indexOf('Linux') > -1; //g
+                  var isIOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/); //ios终端
+                  if (isAndroid) {
+                    window.Android.savehandwriting(dataURL);
+                  }
+                  if (isIOS) {
+                    window.location = "savehandwriting:" + dataURL;
+                  }
+
+                } else {
+                  // this.formData.append("DATA_ID", 1);
+                  // this.formData.append("FORM_ID", "64d8f230-81a8-6a5c-1751-a401ddc1e9f6");
+                  // this.formData.append("ITEM_ID", "data_5e8bf12ff2e3b");
+                  // this.formData.append("BIND_DATA", "");
+                  // this.formData.append("P", "e55i0u2u145vsdad9h4oi7jglf");
+                  this.formData.append("SIGNATURE", file);
+                  submitHE(this.simpleFontOption.server, this.formData).then((res) => {
+                    var originUrl = localStorage.getItem("originUrl");
+                    if(originUrl) {
+
+                      localStorage.removeItem("originUrl");
+                      window.history.back();
+                      // window.location.replace(originUrl);
+                    }
+                  },(err) => {
+                    throw new Error(err);
+                  })
+                }
+
+                this.isCursorPointShow = true;
+                this.isAlertLoading = false;
+                // this.isAlertHtml = true;
               })
-              this.isCursorPointShow = true;
-              this.isAlertLoading = false;
-              // this.isAlertHtml = true;
-            })
-          }
-        })
+            }
+          })
+        } else {
+          this.$refs.alertMessage.alertMessage("您还没有书写文字，无法保存~");
+        }
+
       },
       dataURLtoFile: function(dataurl, filename) {//将base64转换为文件，dataurl为base64字符串，filename为文件名（必须带后缀名，如.jpg,.png）
         var arr = dataurl.split(','),
@@ -311,6 +393,23 @@
       },
       clearHandCanvas: function () {
         this.handContext.clearRect(0,0,this.handCanvas.width(), this.handCanvas.height());
+      },
+      checkIsWrap() {
+        if(this.simpleFontOption.pcStipulateWidth < this.scrollBox.clientWidth){
+          this.isWrap = false;
+        } else {
+          this.isWrap = true;
+        }
+      },
+      checkIsBr () {
+        var nowScrollBoxWidth = this.scrollBox.scrollWidth;
+        if(this.simpleFontOption.pcStipulateWidth > this.scrollBox.clientWidth && (nowScrollBoxWidth - this.simpleFontOption.pcStipulateWidth) > 0){
+          BTNEV.lotozeLineFeed(this); //换行
+        }
+        //(nowScrollBoxWidth - this.simpleFontOption.pcStipulateWidth) < 0  说明没到300
+        //(nowScrollBoxWidth - this.simpleFontOption.pcStipulateWidth) = 0  说明刚刚好到300
+        //(nowScrollBoxWidth - this.simpleFontOption.pcStipulateWidth) > 0  说明超过300 不太可能
+        //(nowScrollBoxWidth - this.simpleFontOption.pcStipulateWidth) < 0 && (nowScrollBoxWidth - this.simpleFontOption.pcStipulateWidth) - this.simpleFontOption.width <= 0 //如果没到300，那就要看是否剩下的够一个汉字，不够就换行
       }
     }
   }
@@ -318,7 +417,6 @@
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-  @import "../assets/style/public.css";
   .lotoze-HS{
     width: 100%;
     height: 100%;
@@ -326,11 +424,11 @@
   .top-btn{
     display: flex;
     justify-content: space-between;
-    padding: 10px;
+    padding: 0.5rem;
     color: #3385ff;
   }
   .top-btn span{
-    font-size: 1.6rem;
+    font-size: 1.4rem;
   }
   .title{
     text-align: left;
@@ -350,19 +448,28 @@
   /*  background-color: #fff;*/
   /*}*/
   .scroll-box.scroll-box{
-    height: 14rem;
+    height: 10rem;
+  }
+  .lotoze-HS > .lotoze-view{
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 95%;
+    text-align: left;
+    margin: 0.5rem auto;
   }
   .lotoze-view{
     text-align: left;
     background-color: #f2f2f2;
-    margin: 10px;
+    margin: 0.5rem;
     border-radius: 5px;
     overflow-x: auto;
     padding: 0;
   }
   .lotoze-view #fontView,
   .lotoze-view #finalView{
-    white-space: nowrap;
     font-size: 0;
   }
   .lotoze-view #fontView img,
@@ -377,18 +484,18 @@
   .lotoze-view #finalView .space{
     display: inline-block;
   }
-  .lotoze-view::after{
-    content: "";
-    display: block;
-    height: 30px;
-  }
+  /*.lotoze-view::after{*/
+  /*  content: "";*/
+  /*  display: block;*/
+  /*  height: 30px;*/
+  /*}*/
 
   .lotoze-hand {
     width: 100%;
-    height: 36.3rem;
+    /*height: 36.3rem;*/
     background-color: #fff;
     position: fixed;
-    bottom: 1rem;
+    bottom: 0.5rem;
     left: 50%;
     transform: translateX(-50%);
     z-index: 8888;
@@ -444,14 +551,19 @@
     font-size: 1.4rem;
   }
   #hand{
-    width: 290px;
-    height: 290px;
+    width: 25rem;
+    height: 25rem;
     border: 1px solid #ccc;
   }
   .save-img{
     width: 90%;
     display: block;
     margin: 5% auto 0;
+  }
+
+  .color-packer{
+    position: absolute;
+    z-index: 99999;
   }
 
 </style>
