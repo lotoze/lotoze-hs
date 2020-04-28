@@ -109,15 +109,18 @@
   import * as TimeUtil from "../utils/TimeUtil.js";
   import * as UrlUtil from "../utils/UrlUtil.js";
 
+  import vcolorpicker from "vcolorpicker";
+
 
   export default {
-    name: 'LotozeHS',
+    name: 'Lotoze-HS',
     props: ["options"],
     components: {
       "AlertLoading": AlertLoading,
       "AlertHtml": AlertHtml,
       "AlertMessage": AlertMessage,
-      "BrushSize": BrushSize
+      "BrushSize": BrushSize,
+        "vcolorpicker": vcolorpicker
     },
 
     data () {
@@ -417,6 +420,9 @@
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+  @import "../assets/font/iconfont.css";
+  @import "../assets/style/public.css";
+  @import "~loaders.css";
   .lotoze-HS{
     width: 100%;
     height: 100%;
