@@ -17,7 +17,7 @@
     "url": "git+https://github.com/lotoze/lotoze-hs"
   },
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "exports-loader": "^0.7.0",
     "html2canvas": "^1.0.0-rc.5",
     "loaders.css": "^0.1.2",
